@@ -3,3 +3,5 @@ bs4
 fastapi[standard]
 pydantic
 starlette
+groq
+python-dotenv
