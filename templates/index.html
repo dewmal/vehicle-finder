@@ -1,0 +1,439 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ikman Vehicle Scraper – Chat UI</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            /* slate-900 */
+            --panel: #111827;
+            /* gray-900 */
+            --panel-2: #0b1220;
+            /* darker */
+            --text: #e5e7eb;
+            /* gray-200 */
+            --muted: #94a3b8;
+            /* slate-400 */
+            --brand: #22d3ee;
+            /* cyan-400 */
+            --accent: #34d399;
+            /* emerald-400 */
+            --danger: #f87171;
+            /* red-400 */
+            --card: #0b1325;
+            /* tw-like */
+            --ring: rgba(34, 211, 238, .25);
+            --border: #1f2937;
+            /* gray-800 */
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            height: 100%;
+        }
+
+        body {
+            margin: 0;
+            background: linear-gradient(180deg, var(--bg), #0a0f1e);
+            color: var(--text);
+            font: 14px/1.4 system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, sans-serif;
+        }
+
+        .app {
+            height: 100dvh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px 16px;
+            border-bottom: 1px solid var(--border);
+            background: var(--panel-2);
+            position: sticky;
+            top: 0;
+            z-index: 10;
+        }
+
+        .header h1 {
+            margin: 0;
+            font-size: 14px;
+            letter-spacing: .4px;
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .chips {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .chip {
+            border: 1px solid var(--border);
+            color: var(--muted);
+            padding: 6px 10px;
+            border-radius: 999px;
+            cursor: pointer;
+        }
+
+        .chip:hover {
+            border-color: var(--brand);
+            color: #cffafe;
+        }
+
+        /* Results (top area) */
+        .results {
+            flex: 1;
+            overflow-y: auto;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .empty {
+            color: var(--muted);
+            text-align: center;
+            margin-top: 6vh;
+        }
+
+        .card {
+            display: grid;
+            grid-template-columns: 120px 1fr;
+            gap: 12px;
+            padding: 12px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: linear-gradient(180deg, var(--card), #0a1122);
+        }
+
+        .thumb {
+            width: 120px;
+            height: 90px;
+            border-radius: 10px;
+            background: #0b0f1c;
+            object-fit: cover;
+            border: 1px solid var(--border);
+        }
+
+        .meta {
+            display: grid;
+            gap: 6px;
+            min-width: 0;
+        }
+
+        .title a {
+            color: #e2e8f0;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .title a:hover {
+            color: #a5f3fc;
+        }
+
+        .row {
+            display: flex;
+            gap: 12px;
+            flex-wrap: wrap;
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .badge {
+            padding: 2px 8px;
+            border: 1px solid var(--border);
+            border-radius: 999px;
+        }
+
+        /* Footer input (bottom) */
+        .footer {
+            position: sticky;
+            bottom: 0;
+            background: linear-gradient(180deg, rgba(3, 7, 18, 0), var(--panel));
+            padding: 10px 12px 12px;
+            border-top: 1px solid var(--border);
+        }
+
+        .bar {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .input {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            padding: 8px 10px;
+            background: #0b1220;
+        }
+
+        .input input {
+            all: unset;
+            flex: 1;
+            color: #e2e8f0;
+            font-size: 14px;
+        }
+
+        .btn {
+            background: linear-gradient(180deg, #0ea5b7, #0891a6);
+            color: #001018;
+            border: none;
+            padding: 10px 14px;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 0 0 0 var(--ring);
+            transition: box-shadow .15s ease, transform .02s ease;
+        }
+
+        .btn[disabled] {
+            opacity: .6;
+            cursor: not-allowed;
+        }
+
+        .btn:active {
+            transform: translateY(1px);
+        }
+
+        .status {
+            margin-top: 8px;
+            color: var(--muted);
+            font-size: 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        /* Scrollbar */
+        .results::-webkit-scrollbar {
+            width: 10px;
+        }
+
+        .results::-webkit-scrollbar-thumb {
+            background: #1f2a44;
+            border-radius: 10px;
+        }
+
+        /* Small spinner */
+        .spinner {
+            width: 16px;
+            height: 16px;
+            border: 2px solid var(--brand);
+            border-top-color: transparent;
+            border-radius: 50%;
+            display: inline-block;
+            animation: spin .8s linear infinite;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width:560px) {
+            .card {
+                grid-template-columns: 100px 1fr;
+            }
+
+            .thumb {
+                width: 100px;
+                height: 80px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+        <div class="header">
+            <h1>Ikman Vehicle Scraper · Results</h1>
+            <div class="chips" id="chips">
+                <span class="chip" data-q="Alto">Alto</span>
+                <span class="chip" data-q="Wagon R">Wagon R</span>
+                <span class="chip" data-q="Axio">Axio</span>
+                <span class="chip" data-q="Vitz">Vitz</span>
+                <span class="chip" data-q="Hybrid">Hybrid</span>
+            </div>
+        </div>
+
+        <div id="results" class="results" aria-live="polite">
+            <p class="empty">Start by typing a model (e.g., <b>Alto</b>) and hit <b>Enter</b> — results will appear
+                here.</p>
+        </div>
+
+        <div class="footer">
+            <form id="queryForm" class="bar">
+                <div class="input" role="search">
+                    <input id="q" name="q" placeholder="Ask e.g. \" Find Wagon R under 200k\" or just type a model…"
+                        autocomplete="off" />
+                </div>
+                <button id="sendBtn" type="submit" class="btn">Search</button>
+            </form>
+            <div class="status">
+                <div id="statusText">Ready.</div>
+                <div id="countText"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // === Configuration ===
+        // If your API is hosted elsewhere, set API_BASE = 'https://your-host.com' (no trailing slash)
+        const API_BASE = '';
+
+        const els = {
+            form: document.getElementById('queryForm'),
+            q: document.getElementById('q'),
+            results: document.getElementById('results'),
+            sendBtn: document.getElementById('sendBtn'),
+            status: document.getElementById('statusText'),
+            count: document.getElementById('countText'),
+            chips: document.getElementById('chips')
+        };
+
+        // Chip quick-filters
+        els.chips.addEventListener('click', (e) => {
+            const chip = e.target.closest('.chip');
+            if (!chip) return;
+            els.q.value = chip.dataset.q || '';
+            els.q.focus();
+            doSearch();
+        });
+
+        els.form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            doSearch();
+        });
+
+        els.q.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') { els.q.value = ''; }
+        });
+
+        async function doSearch() {
+            const query = (els.q.value || '').trim();
+            if (!query) {
+                toast('Please enter a search term.');
+                return;
+            }
+            setBusy(true);
+            setStatus(`Searching for \u201C${query}\u201D…`);
+            renderLoading();
+
+            try {
+                const url = `${API_BASE}/vehicles?q=${encodeURIComponent(query)}`;
+                const res = await fetch(url);
+                if (!res.ok) {
+                    throw new Error(`HTTP ${res.status}`);
+                }
+                const data = await res.json();
+                if (!Array.isArray(data)) throw new Error('Unexpected response. Expected an array.');
+                renderResults(data);
+                setStatus('Done.');
+                els.count.textContent = `${data.length} result${data.length !== 1 ? 's' : ''}`;
+            } catch (err) {
+                console.error(err);
+                renderError(err);
+                setStatus('Failed.');
+                els.count.textContent = '';
+            } finally {
+                setBusy(false);
+            }
+        }
+
+        function setBusy(b) {
+            els.sendBtn.disabled = b;
+            els.sendBtn.innerHTML = b ? '<span class="spinner"></span>' : 'Search';
+        }
+
+        function setStatus(t) { els.status.textContent = t; }
+
+        function renderLoading() {
+            els.results.innerHTML = `
+        <div style="display:flex; gap:10px; align-items:center; justify-content:center; margin:16px 0; color:var(--muted)">
+          <span class="spinner" style="width:18px;height:18px"></span>
+          <span>Fetching listings…</span>
+        </div>`;
+        }
+
+        function renderError(err) {
+            els.results.innerHTML = `<div style="color:var(--danger); text-align:center; margin:16px 0;">\n⚠️ ${escapeHtml(err.message || 'Something went wrong')}\n</div>`;
+        }
+
+        function renderResults(items) {
+            if (!items.length) {
+                els.results.innerHTML = '<p class="empty">No results. Try a different term.</p>';
+                return;
+            }
+            const frag = document.createDocumentFragment();
+            items.forEach((item) => frag.appendChild(card(item)));
+            els.results.innerHTML = '';
+            els.results.appendChild(frag);
+            // Scroll to top after new search
+            els.results.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function card(item) {
+            const el = document.createElement('div');
+            el.className = 'card';
+            const imgSrc = item.image || placeholder();
+            el.innerHTML = `
+        <img class="thumb" src="${escapeAttr(imgSrc)}" alt="thumb" onerror="this.src='${placeholder()}'"/>
+        <div class="meta">
+          <div class="title"><a href="${escapeAttr(item.link)}" target="_blank" rel="noopener noreferrer">${escapeHtml(item.title || 'Untitled')}</a></div>
+          <div class="row">
+            <span class="badge">${escapeHtml(item.price || 'N/A')}</span>
+            <span class="badge">${escapeHtml(item.mileage || '— mileage')}</span>
+            <span class="badge">${escapeHtml(item.location_category || '—')}</span>
+            <span class="badge">Updated: ${escapeHtml(item.updated || '—')}</span>
+          </div>
+        </div>`;
+            return el;
+        }
+
+        function placeholder() {
+            // tiny transparent gradient placeholder (data URL) to avoid external deps
+            return 'data:image/svg+xml;utf8,' + encodeURIComponent(
+                `<svg xmlns="http://www.w3.org/2000/svg" width="120" height="90">\n` +
+                `<defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#0b1220"/><stop offset="1" stop-color="#0e172a"/></linearGradient></defs>` +
+                `<rect width="100%" height="100%" fill="url(#g)"/>` +
+                `<text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="#334155" font-size="12" font-family="system-ui">no image</text>` +
+                `</svg>`
+            );
+        }
+
+        // Basic HTML escaping
+        function escapeHtml(s = '') { return String(s).replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', '\'': '&#39;' }[m])); }
+        function escapeAttr(s = '') { return String(s).replace(/"/g, '&quot;'); }
+
+        // Small toast using status line
+        let toastTimer;
+        function toast(msg) {
+            clearTimeout(toastTimer);
+            const prev = els.status.textContent;
+            els.status.textContent = msg;
+            toastTimer = setTimeout(() => { els.status.textContent = prev; }, 1800);
+        }
+
+        // Optional: auto-focus input on load
+        window.addEventListener('load', () => { els.q.focus(); });
+    </script>
+</body>
+
+</html>
