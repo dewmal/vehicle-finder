@@ -257,6 +257,90 @@
                 height: 80px;
             }
         }
+
+        /* --- Markdown rendering --- */
+        .md {
+            line-height: 1.6;
+            color: var(--text);
+        }
+
+        .md h1,
+        .md h2,
+        .md h3,
+        .md h4,
+        .md h5,
+        .md h6 {
+            margin: 0.6em 0 0.35em;
+            line-height: 1.25;
+        }
+
+        .md h1 {
+            font-size: 1.5rem;
+        }
+
+        .md h2 {
+            font-size: 1.3rem;
+        }
+
+        .md h3 {
+            font-size: 1.15rem;
+        }
+
+        .md p {
+            margin: 0.5em 0;
+            color: #cbd5e1;
+        }
+
+        .md a {
+            color: #67e8f9;
+            text-decoration: none;
+            border-bottom: 1px dashed var(--brand);
+        }
+
+        .md a:hover {
+            color: #a5f3fc;
+        }
+
+        .md ul,
+        .md ol {
+            padding-left: 1.25rem;
+            margin: 0.5em 0;
+        }
+
+        .md li+li {
+            margin-top: 0.2em;
+        }
+
+        .md blockquote {
+            margin: 0.8em 0;
+            padding: 0.6em 0.8em;
+            border-left: 3px solid var(--brand);
+            background: rgba(34, 211, 238, .06);
+            color: #cbd5e1;
+        }
+
+        .md code {
+            font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+            background: #0b0f1c;
+            padding: 0.12em 0.35em;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            font-size: 0.95em;
+        }
+
+        .md pre {
+            background: #0b0f1c;
+            border: 1px solid var(--border);
+            padding: 0.8rem;
+            overflow: auto;
+            border-radius: 10px;
+        }
+
+        .md pre code {
+            background: transparent;
+            border: 0;
+            padding: 0;
+        }
     </style>
 </head>
 
@@ -328,10 +412,8 @@
 
         async function doSearch() {
             const query = (els.q.value || '').trim();
-            if (!query) {
-                toast('Please enter a search term.');
-                return;
-            }
+            if (!query) { toast('Please enter a search term.'); return; }
+
             setBusy(true);
             setStatus(`Searching for \u201C${query}\u201D…`);
             renderLoading();
@@ -339,14 +421,26 @@
             try {
                 const url = `${API_BASE}/search?q=${encodeURIComponent(query)}`;
                 const res = await fetch(url);
-                if (!res.ok) {
-                    throw new Error(`HTTP ${res.status}`);
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+                const ct = (res.headers.get('content-type') || '').toLowerCase();
+                let markdown;
+
+                if (ct.includes('application/json')) {
+                    const data = await res.json();
+                    // Accept either a raw string or common fields
+                    if (typeof data === 'string') markdown = data;
+                    else markdown = data.markdown || data.content || data.text || JSON.stringify(data, null, 2);
+                } else {
+                    markdown = await res.text();
                 }
-                const data = await res.json();
-                if (!Array.isArray(data)) throw new Error('Unexpected response. Expected an array.');
-                renderResults(data);
+
+                // Fallback if somehow empty
+                if (!markdown || !String(markdown).trim()) markdown = '_No content returned._';
+
+                renderMarkdown(markdown);
                 setStatus('Done.');
-                els.count.textContent = `${data.length} result${data.length !== 1 ? 's' : ''}`;
+                els.count.textContent = ''; // (optional) no count for markdown
             } catch (err) {
                 console.error(err);
                 renderError(err);
@@ -357,6 +451,80 @@
             }
         }
 
+        /* Replace old renderResults with Markdown renderer */
+        function renderMarkdown(md) {
+            els.results.innerHTML = `<div class="card"><div class="meta md">${mdToHtml(String(md))}</div></div>`;
+            els.results.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        /* Lightweight Markdown → HTML (safe-ish) */
+        function mdToHtml(src) {
+            // 1) Escape HTML first to avoid injection
+            let s = String(src)
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // 2) Preserve code fences first (```lang\n...\n```)
+            const fences = [];
+            s = s.replace(/```(\w+)?\n([\s\S]*?)```/g, (_, lang = '', code) => {
+                const idx = fences.length;
+                fences.push({ lang: lang.trim(), code });
+                return `§§FENCE_${idx}§§`;
+            });
+
+            // 3) Block elements
+            // Headings
+            s = s.replace(/^######\s+(.*)$/gm, "<h6>$1</h6>")
+                .replace(/^#####\s+(.*)$/gm, "<h5>$1</h5>")
+                .replace(/^####\s+(.*)$/gm, "<h4>$1</h4>")
+                .replace(/^###\s+(.*)$/gm, "<h3>$1</h3>")
+                .replace(/^##\s+(.*)$/gm, "<h2>$1</h2>")
+                .replace(/^#\s+(.*)$/gm, "<h1>$1</h1>");
+
+            // Blockquotes
+            s = s.replace(/^>\s?(.*)$/gm, "<blockquote>$1</blockquote>");
+
+            // Lists (very simple)
+            // Ordered
+            s = s.replace(/(?:^|\n)(\d+\.\s[^\n]+(?:\n\d+\.\s[^\n]+)*)/g, block => {
+                const items = block.trim().split('\n').map(l => l.replace(/^\d+\.\s+/, '')).map(li => `<li>${li}</li>`).join('');
+                return `\n<ol>${items}</ol>`;
+            });
+            // Unordered
+            s = s.replace(/(?:^|\n)([-*]\s[^\n]+(?:\n[-*]\s[^\n]+)*)/g, block => {
+                const items = block.trim().split('\n').map(l => l.replace(/^[-*]\s+/, '')).map(li => `<li>${li}</li>`).join('');
+                return `\n<ul>${items}</ul>`;
+            });
+
+            // 4) Inline elements
+            // Links: [text](https://...)
+            s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+            // Bold **text**
+            s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+            // Italic *text* (lazy, avoids **)
+            s = s.replace(/(^|[\s(])\*(?!\s)([^*\n]+?)\*(?=[\s).,!?]|$)/g, '$1<em>$2</em>');
+            // Inline code `x`
+            s = s.replace(/`([^`\n]+?)`/g, '<code>$1</code>');
+
+            // 5) Paragraphs: wrap bare lines that aren't already block HTML
+            s = s.split(/\n{2,}/).map(chunk => {
+                const trimmed = chunk.trim();
+                if (!trimmed) return '';
+                const isBlock = /^(<h\d|<ul>|<ol>|<blockquote>|<pre>|<p>|§§FENCE_)/.test(trimmed);
+                return isBlock ? trimmed : `<p>${trimmed.replace(/\n/g, '<br/>')}</p>`;
+            }).join('');
+
+            // 6) Restore code fences
+            s = s.replace(/§§FENCE_(\d+)§§/g, (_, i) => {
+                const { lang, code } = fences[Number(i)];
+                const safe = String(code).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                const cls = lang ? ` class="language-${lang}"` : '';
+                return `<pre><code${cls}>${safe}</code></pre>`;
+            });
+
+            return s;
+        }
         function setBusy(b) {
             els.sendBtn.disabled = b;
             els.sendBtn.innerHTML = b ? '<span class="spinner"></span>' : 'Search';
