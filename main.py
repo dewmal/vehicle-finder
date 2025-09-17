@@ -8,6 +8,7 @@ from fastapi.templating import Jinja2Templates
 # ⬇️ import your function (update the module path to where you keep it)
 from app.vehicle_finder_ikman import get_vehicle_details  # e.g., put your code in scraper.py
 from app.query_analyser import analyse_query
+from app.result_builder import build_result
 
 app = FastAPI(title="Ikman Vehicle Scraper API", version="1.0.0")
 # Tell FastAPI where your templates folder is
@@ -42,7 +43,7 @@ async def vehicles(q: str = Query(..., min_length=1, description="Search term, e
 
 
 
-@app.get("/search", response_model=List[AdItem])
+@app.get("/search", response_model=str)
 async def search(q: str = Query(..., min_length=1, description="Search term, e.g. 'Alto'")):
     """
     Proxy endpoint that scrapes Ikman listings using your existing function.
@@ -52,7 +53,9 @@ async def search(q: str = Query(..., min_length=1, description="Search term, e.g
         ads_list = []
         for r in results:
             ads_list += await run_in_threadpool(get_vehicle_details, r)
-        return ads_list
+        
+        response =await run_in_threadpool(build_result, q,ads_list)
+        return response
     except Exception as e:
         raise HTTPException(status_code=502, detail=f"Scrape failed: {e.__class__.__name__}: {e}")
 
