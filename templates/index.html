@@ -337,7 +337,7 @@
             renderLoading();
 
             try {
-                const url = `${API_BASE}/vehicles?q=${encodeURIComponent(query)}`;
+                const url = `${API_BASE}/search?q=${encodeURIComponent(query)}`;
                 const res = await fetch(url);
                 if (!res.ok) {
                     throw new Error(`HTTP ${res.status}`);
