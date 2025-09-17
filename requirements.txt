@@ -1,2 +1,5 @@
 requests
 bs4
+fastapi[standard]
+pydantic
+starlette
